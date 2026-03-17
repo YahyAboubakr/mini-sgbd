@@ -99,8 +99,11 @@ public class Parseur {
                 }
             }
 
-            // 3. On ajoute la condition structurée à notre liste
-            listeConditions.add(new Condition(gauche, operateur, droite, lienLogique));
+            // 3. Détecter si c'est une condition de jointure
+            boolean isJoin = Condition.isJoinCondition(gauche, droite);
+
+            // 4. On ajoute la condition structurée à notre liste
+            listeConditions.add(new Condition(gauche, operateur, droite, lienLogique, isJoin));
         }
 
         return listeConditions;
