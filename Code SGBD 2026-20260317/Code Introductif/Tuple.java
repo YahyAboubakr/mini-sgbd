@@ -1,6 +1,6 @@
 
 public class Tuple{// implements Comparable {
-	
+
 	int[] val;
 	int size=0;
 	private static int compareAtt;
@@ -10,7 +10,7 @@ public class Tuple{// implements Comparable {
 		this.size = s;
 		Tuple.compareAtt = 0;
 	}
-	
+
 	public String toString() {
 		String s="";
 		for(int i=0;i<this.size;i++) {
@@ -18,7 +18,7 @@ public class Tuple{// implements Comparable {
 		}
 		return s;
 	}
-/*	
+/*
 	public static void setCompareAtt(int a) {
 		Tuple.compareAtt = a;
 	}
