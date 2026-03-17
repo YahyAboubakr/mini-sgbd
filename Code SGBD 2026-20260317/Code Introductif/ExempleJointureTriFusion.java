@@ -1,39 +1,51 @@
 
+/**
+ * Exemple de test pour JointureTriFusion sur table1 et table2 (disque).
+ *
+ * table1 et table2 : 25 tuples chacune, 4 attributs, valeurs aléatoires 0-4.
+ */
 public class ExempleJointureTriFusion {
+
+    static final String PATH = "/home/jules/Documents/4A-Apprentis/SGBD/mini-sgbd/Code SGBD 2026-20260317/Table Disque et exemples/";
+    static final String FICHIER_T1 = PATH + "table1";
+    static final String FICHIER_T2 = PATH + "table2";
 
     public static void main(String[] args) {
 
-        // Table 1 : 2 attributs, valeurs 0-4, 6 lignes
-        TableMemoire t1 = TableMemoire.randomize(2, 5, 6);
-        // Table 2 : 2 attributs, valeurs 0-4, 6 lignes
-        TableMemoire t2 = TableMemoire.randomize(2, 5, 6);
-
         // Affichage des deux tables
         System.out.println("=== Table 1 ===");
-        Operateur scan1 = new FullScanTableMemoire(t1);
-        scan1.open();
-        Tuple t;
-        while ((t = scan1.next()) != null) System.out.println(t);
-        scan1.close();
+        afficherTable(FICHIER_T1);
 
-        System.out.println("=== Table 2 ===");
-        Operateur scan2 = new FullScanTableMemoire(t2);
-        scan2.open();
-        while ((t = scan2.next()) != null) System.out.println(t);
-        scan2.close();
+        System.out.println("\n=== Table 2 ===");
+        afficherTable(FICHIER_T2);
 
         // Jointure Tri-Fusion sur col 0 de T1 = col 0 de T2
-        System.out.println("=== Jointure Tri-Fusion (T1.col0 = T2.col0) ===");
+        System.out.println("\n=== Jointure Tri-Fusion (T1.col0 = T2.col0) ===");
         JointureTriFusion jointure = new JointureTriFusion(
-                new FullScanTableMemoire(t1),
-                new FullScanTableMemoire(t2),
+                new FullScanTableDisque(new TableDisque(FICHIER_T1)),
+                new FullScanTableDisque(new TableDisque(FICHIER_T2)),
                 0, 0);
 
         jointure.open();
-        while ((t = jointure.next()) != null) System.out.println(t);
+        Tuple t;
+        int count = 0;
+        while ((t = jointure.next()) != null) {
+            System.out.println(t);
+            count++;
+        }
         jointure.close();
 
+        System.out.println("Tuples joints : " + count);
         System.out.println(jointure);
+    }
+
+    /** Affiche tous les tuples d'une table disque. */
+    private static void afficherTable(String chemin) {
+        FullScanTableDisque scan = new FullScanTableDisque(new TableDisque(chemin));
+        scan.open();
+        Tuple t;
+        while ((t = scan.next()) != null) System.out.println(t);
+        scan.close();
     }
 
 }

@@ -1,8 +1,11 @@
 
 public class Restrict extends Instrumentation implements Operateur {
 	
-	public static final int EGAL = 0;
-	public static final int INFEGAL = 1;
+	public static final int EGAL     = 0; // col = val
+	public static final int INFEGAL  = 1; // col <= val
+	public static final int SUPERIEUR = 2; // col > val
+	public static final int INFERIEUR = 3; // col < val
+	public static final int SUPEGAL  = 4; // col >= val
 	
 	
 	private Operateur dataSource;
@@ -40,7 +43,34 @@ public class Restrict extends Instrumentation implements Operateur {
 		if(this.typeOperationTest == Restrict.INFEGAL) {
 			while((retour = this.dataSource.next())!=null) {
 				if(retour.val[this.colonneATester] <= this.valeurATester) {
-					this.produit(retour); // instrumentation
+					this.produit(retour);
+					this.stop();
+					return retour;
+				}
+			}
+		}
+		if(this.typeOperationTest == Restrict.SUPERIEUR) {
+			while((retour = this.dataSource.next())!=null) {
+				if(retour.val[this.colonneATester] > this.valeurATester) {
+					this.produit(retour);
+					this.stop();
+					return retour;
+				}
+			}
+		}
+		if(this.typeOperationTest == Restrict.INFERIEUR) {
+			while((retour = this.dataSource.next())!=null) {
+				if(retour.val[this.colonneATester] < this.valeurATester) {
+					this.produit(retour);
+					this.stop();
+					return retour;
+				}
+			}
+		}
+		if(this.typeOperationTest == Restrict.SUPEGAL) {
+			while((retour = this.dataSource.next())!=null) {
+				if(retour.val[this.colonneATester] >= this.valeurATester) {
+					this.produit(retour);
 					this.stop();
 					return retour;
 				}

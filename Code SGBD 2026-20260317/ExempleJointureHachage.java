@@ -1,57 +1,28 @@
 /**
- * Exemple de test pour JointureHachage.
+ * Exemple de test pour JointureHachage sur table1 et table2 (disque).
  *
- * Données connues (pas aléatoires) pour pouvoir vérifier les résultats à la main.
- * On compare ensuite avec JointureTriFusion pour valider la cohérence.
+ * table1 et table2 : 25 tuples chacune, 4 attributs, valeurs aléatoires 0-4.
  *
- * Table 1 (3 tuples, 2 attributs) :   Table 2 (4 tuples, 2 attributs) :
- *   col0  col1                           col0  col1
- *    1     10                              1     100
- *    2     20                              2     200
- *    3     30                              2     201
- *                                          4     400
- *
- * Jointure sur T1.col0 = T2.col0 — résultats attendus :
- *   1  10  1  100
- *   2  20  2  200
- *   2  20  2  201
+ * On compare le résultat de JointureHachage avec JointureTriFusion sur la même
+ * jointure pour valider la cohérence (même nombre de tuples produits).
  */
 public class ExempleJointureHachage {
 
     static final String PATH = "/home/jules/Documents/4A-Apprentis/SGBD/mini-sgbd/Code SGBD 2026-20260317/Table Disque et exemples/";
-    static final String FICHIER_T1 = PATH + "test_jh_t1";
-    static final String FICHIER_T2 = PATH + "test_jh_t2";
+    static final String FICHIER_T1 = PATH + "table1";
+    static final String FICHIER_T2 = PATH + "table2";
 
     public static void main(String[] args) {
-
-        // --- Création des tables sur disque ---
-        int[][] donneesT1 = {
-            {1, 10},
-            {2, 20},
-            {3, 30}
-        };
-        int[][] donneesT2 = {
-            {1, 100},
-            {2, 200},
-            {2, 201},
-            {4, 400}
-        };
-
-        TableDisque td1 = new TableDisque(FICHIER_T1);
-        td1.ecrire(donneesT1);
-
-        TableDisque td2 = new TableDisque(FICHIER_T2);
-        td2.ecrire(donneesT2);
 
         // --- Affichage des deux tables ---
         System.out.println("=== Table 1 ===");
         afficherTable(FICHIER_T1);
 
-        System.out.println("=== Table 2 ===");
+        System.out.println("\n=== Table 2 ===");
         afficherTable(FICHIER_T2);
 
         // --- Jointure par Hachage sur T1.col0 = T2.col0 ---
-        System.out.println("=== Jointure par Hachage (T1.col0 = T2.col0) ===");
+        System.out.println("\n=== Jointure par Hachage (T1.col0 = T2.col0) ===");
         JointureHachage jh = new JointureHachage(
                 new FullScanTableDisque(new TableDisque(FICHIER_T1)),
                 new FullScanTableDisque(new TableDisque(FICHIER_T2)),
@@ -59,31 +30,38 @@ public class ExempleJointureHachage {
 
         jh.open();
         Tuple t;
-        int count = 0;
+        int countJH = 0;
         while ((t = jh.next()) != null) {
             System.out.println(t);
-            count++;
+            countJH++;
         }
         jh.close();
-        System.out.println("Tuples joints : " + count + " (attendu : 3)");
+        System.out.println("Tuples joints (Hachage) : " + countJH);
         System.out.println(jh);
 
         // --- Vérification croisée avec JointureTriFusion ---
-        System.out.println("\n=== Vérification : JointureTriFusion (même jointure) ===");
+        System.out.println("\n=== Vérification croisée : JointureTriFusion (même jointure) ===");
         JointureTriFusion jtf = new JointureTriFusion(
                 new FullScanTableDisque(new TableDisque(FICHIER_T1)),
                 new FullScanTableDisque(new TableDisque(FICHIER_T2)),
                 0, 0);
 
         jtf.open();
-        count = 0;
+        int countJTF = 0;
         while ((t = jtf.next()) != null) {
-            System.out.println(t);
-            count++;
+            countJTF++;
         }
         jtf.close();
-        System.out.println("Tuples joints : " + count + " (attendu : 3)");
+        System.out.println("Tuples joints (Tri-Fusion) : " + countJTF);
         System.out.println(jtf);
+
+        // --- Validation ---
+        System.out.println("\n=== Résultat ===");
+        if (countJH == countJTF) {
+            System.out.println("[OK] Les deux algorithmes produisent le même nombre de tuples (" + countJH + ")");
+        } else {
+            System.out.println("[ERREUR] Hachage=" + countJH + " vs Tri-Fusion=" + countJTF);
+        }
     }
 
     /** Affiche tous les tuples d'une table disque. */
