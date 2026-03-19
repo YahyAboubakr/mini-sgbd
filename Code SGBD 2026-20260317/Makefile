@@ -20,6 +20,10 @@ compile:
 run: compile
 	$(JAVA) -cp "$(CLASSPATH)" $(MAIN_CLASS)
 
+# Test tri externe
+tri: compile
+	$(JAVA) -cp "$(CLASSPATH)" ExempleTriExterne
+
 # Nettoyage des fichiers .class
 clean:
 	rm -f *.class
@@ -36,8 +40,9 @@ help:
 	@echo "  all      : Compile le projet (défaut)"
 	@echo "  compile  : Compile le projet"
 	@echo "  run      : Compile et exécute le programme"
+	@echo "  tri      : Compile et teste le tri externe"
 	@echo "  clean    : Supprime les fichiers .class"
 	@echo "  rebuild  : Nettoie et recompile"
 	@echo "  help     : Affiche cette aide"
 
-.PHONY: all compile run clean rebuild help
+.PHONY: all compile run tri clean rebuild help

@@ -2,7 +2,7 @@ public class Main {
 
     public static void main(String[] args) {
 
-        String path = "/home/amadou/insa/sgbd/src/mini/Code SGBD 2026-20260317/";
+        String path = "/home/jules/Documents/4A-Apprentis/SGBD/mini-sgbd/Code SGBD 2026-20260317/Table Disque et exemples/";
         System.out.println("-----------------------T1-----------------------\n");
         String queryTab1 = "SELECT * FROM table1";
         ExecutionTree.executeQuery(queryTab1, path);
