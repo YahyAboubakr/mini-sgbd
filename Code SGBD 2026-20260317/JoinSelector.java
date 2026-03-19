@@ -29,7 +29,13 @@ public class JoinSelector {
         long estimatedMemoryForHash = Math.min(leftSize, rightSize) * 100;
 
         // Logique de décision
-        if (isSorted) {
+        long nlrCount = leftSize * rightSize;
+        if (nlrCount < 100) {
+            // Les tables sont minuscules : la Double Boucle Imbriquée (Nested Loop Join) est super rapide
+            // Gain : Pas d'allocation mémoire complexe (HashMap) ni de tri coûteux au lancement.
+            System.out.println("JoinSelector: Choix -> DBI (Double Boucle Imbriquée). Gain estimé : Tables très petites, évite l'overhead d'initialisation.");
+            return new DBI(left, right, colLeft, colRight);
+        } else if (isSorted) {
             // Les données sont déjà triées : JointureTriFusion est optimale (coût O(N+M))
             // Gain : Évite le tri coûteux en mémoire et CPU, l'algorithme lit linéairement les deux sources et réalise la jointure de la manière la plus performante.
             System.out.println("JoinSelector: Choix -> JointureTriFusion (Données déjà triées). Gain estimé : O(N+M) sans coût additionnel en mémoire/CPU.");
