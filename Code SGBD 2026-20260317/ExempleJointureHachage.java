@@ -49,6 +49,7 @@ public class ExempleJointureHachage {
         jtf.open();
         int countJTF = 0;
         while ((t = jtf.next()) != null) {
+            System.out.println(t);
             countJTF++;
         }
         jtf.close();
