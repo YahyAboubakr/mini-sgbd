@@ -112,4 +112,9 @@ public class MultiRestrict extends Instrumentation implements Operateur {
             default -> false;
         };
     }
+
+    @Override
+    public int estimateSize() {
+        return this.dataSource.estimateSize();
+    }
 }

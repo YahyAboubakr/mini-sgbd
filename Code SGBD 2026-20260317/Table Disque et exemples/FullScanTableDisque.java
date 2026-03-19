@@ -83,4 +83,16 @@ public class FullScanTableDisque implements Operateur {
         }
     }
 
+    @Override
+    public int estimateSize() {
+        try {
+            java.io.FileReader reader = new java.io.FileReader(this.table.filePath);
+            int size = reader.read();
+            reader.close();
+            return size;
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
 }

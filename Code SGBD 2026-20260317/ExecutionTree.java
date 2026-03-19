@@ -10,8 +10,7 @@ public class ExecutionTree implements Operateur {
     private Operateur rootOperator;
     private String[] selectedFields;
     private boolean selectAll;
-    private int[] fieldIndices;
-    
+
     /**
      * Construit l'arbre d'exécution
      * @param basePath chemin de base des fichiers
@@ -96,7 +95,8 @@ public class ExecutionTree implements Operateur {
                 int leftColIndex = resolveColumnIndex(joinCondition.operandeGauche(), tables, result);
                 int rightColIndex = resolveColumnIndex(joinCondition.operandeDroit(), tables, rightOperator);
 
-                result = new JointureTriFusion(result, rightOperator, leftColIndex, rightColIndex);
+                // Utilisation du JoinSelector avec 100 Ko de RAM par défaut et tri supposé false
+                result = JoinSelector.getOptimalJoin(result, rightOperator, leftColIndex, rightColIndex, false, 100 * 1024);
             } else {
                 // Si pas de condition de jointure explicite, on fait un produit cartésien
                 // Pour l'instant, on suppose qu'il y a toujours une condition de jointure
@@ -255,5 +255,10 @@ public class ExecutionTree implements Operateur {
             System.out.println("Erreur lors de l'exécution de la requête : " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public int estimateSize() {
+        return this.rootOperator != null ? this.rootOperator.estimateSize() : -1;
     }
 }

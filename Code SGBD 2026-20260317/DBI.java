@@ -75,4 +75,9 @@ public class DBI extends Instrumentation implements Operateur {
 		this.op1.close();
 		this.op2.close();
 	}
+
+	@Override
+	public int estimateSize() {
+		return Math.max(this.op1.estimateSize(), this.op2.estimateSize());
+	}
 }

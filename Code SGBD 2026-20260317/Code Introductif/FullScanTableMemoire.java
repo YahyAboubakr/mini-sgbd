@@ -41,4 +41,9 @@ public class FullScanTableMemoire extends Instrumentation implements Operateur{
 	public void close(){
 		this.total+=this.tuplesProduits;
 	}
+
+	@Override
+	public int estimateSize() {
+		return this.taille;
+	}
 }

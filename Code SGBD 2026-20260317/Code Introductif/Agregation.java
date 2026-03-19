@@ -85,4 +85,9 @@ public class Agregation extends Instrumentation implements Operateur {
         this.stop();
     }
 
+    @Override
+    public int estimateSize() {
+        return this.dataSource.estimateSize();
+    }
+
 }

@@ -47,4 +47,9 @@ public class FiltreEgalite implements Operateur{
         return new Tuple(1);
     }
 
+    @Override
+    public int estimateSize() {
+        return this.operateur.estimateSize();
+    }
+
 }

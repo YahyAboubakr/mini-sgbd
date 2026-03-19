@@ -43,4 +43,9 @@ public class Project extends Instrumentation implements Operateur{
 		this.in.close();
 	}
 
+	@Override
+	public int estimateSize() {
+		return this.in.estimateSize();
+	}
+
 }

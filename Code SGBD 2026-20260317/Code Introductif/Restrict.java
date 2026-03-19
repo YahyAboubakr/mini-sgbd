@@ -86,4 +86,9 @@ public class Restrict extends Instrumentation implements Operateur {
 		this.stop();
 	}
 
+	@Override
+	public int estimateSize() {
+		return this.dataSource.estimateSize();
+	}
+
 }

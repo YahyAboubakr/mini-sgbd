@@ -89,4 +89,9 @@ public class JointureHachage extends Instrumentation implements Operateur {
     public void close() {
         // Les sources sont déjà fermées dans open()
     }
+
+    @Override
+    public int estimateSize() {
+        return Math.max(this.op1.estimateSize(), this.op2.estimateSize());
+    }
 }

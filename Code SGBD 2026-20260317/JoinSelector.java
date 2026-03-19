@@ -1,0 +1,49 @@
+/**
+ * Sélecteur de stratégie de jointure optimale basé sur les métadonnées des tables.
+ * Choisit entre JointureHachage (Hash Join) et JointureTriFusion (Sort-Merge Join)
+ * en fonction du tri des données, de la taille des tables et de la mémoire disponible.
+ */
+public class JoinSelector {
+
+    /**
+     * Sélectionne la meilleure stratégie de jointure en fonction des métadonnées.
+     *
+     * @param left L'opérateur gauche (table ou sous-arbre)
+     * @param right L'opérateur droit (table ou sous-arbre)
+     * @param colLeft Index de la colonne de jointure dans l'opérateur gauche
+     * @param colRight Index de la colonne de jointure dans l'opérateur droit
+     * @param isSorted true si les deux opérateurs sont déjà triés sur leur colonne de jointure respective
+     * @param availableMemory Mémoire disponible en octets pour l'opération de jointure
+     * @return L'opérateur de jointure optimal (JointureHachage ou JointureTriFusion)
+     */
+    public static Operateur getOptimalJoin(Operateur left, Operateur right, int colLeft, int colRight, boolean isSorted, int availableMemory) {
+        // Estimation des tailles (en nombre de tuples)
+        long leftSize = left.estimateSize();
+        long rightSize = right.estimateSize();
+
+        if(leftSize == -1 || rightSize == -1){
+            throw new IllegalArgumentException("Impossible de déterminer la taille des tables");
+        }
+
+        // Estimation de la mémoire nécessaire pour une HashMap (approximation grossière : 100 octets par tuple)
+        long estimatedMemoryForHash = Math.min(leftSize, rightSize) * 100;
+
+        // Logique de décision
+        if (isSorted) {
+            // Les données sont déjà triées : JointureTriFusion est optimale (coût O(N+M))
+            // Gain : Évite le tri coûteux en mémoire et CPU, l'algorithme lit linéairement les deux sources et réalise la jointure de la manière la plus performante.
+            System.out.println("JoinSelector: Choix -> JointureTriFusion (Données déjà triées). Gain estimé : O(N+M) sans coût additionnel en mémoire/CPU.");
+            return new JointureTriFusion(left, right, colLeft, colRight);
+        } else if (estimatedMemoryForHash < availableMemory) {
+            // Une table tient en mémoire : Hash Join est efficace pour les équi-jointures
+            // Gain : La table la plus petite est stockée en mémoire (HashMap). Le coût de sondage est O(1) en moyenne, très performant pour les jointures sans index trié.
+            System.out.println("JoinSelector: Choix -> JointureHachage (La plus petite table tient en RAM). Gain estimé : Lookup O(1) très rapide au lieu d'un tri O(N log N).");
+            return new JointureHachage(left, right, colLeft, colRight);
+        } else {
+            // Mémoire insuffisante : utiliser Sort-Merge Join pour éviter les débordements de mémoire avec le Hash Join classique.
+            // Gain : Prévention du crash pour cause de "Out of Memory". Bien que le tri en externe puisse être limitant I/O, le Sort-Merge Join ne requiert pas la conservation de la table en mémoire vive, gérant avec efficacité les immenses volumes de données.
+            System.out.println("JoinSelector: Choix -> JointureTriFusion (Mémoire insuffisante pour Hachage). Gain estimé : Évite le débordement mémoire (OutOfMemoryError).");
+            return new JointureTriFusion(left, right, colLeft, colRight);
+        }
+    }
+}
