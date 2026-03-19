@@ -3,11 +3,11 @@
 # Variables
 JAVAC = javac
 JAVA = java
-CLASSPATH = .:Code\ Introductif:Table\ Disque\ et\ exemples
+CLASSPATH = .:Code\ Introductif:Table\ Disque\ et\ exemples:Index
 MAIN_CLASS = Main
 
 # Fichiers source
-SRC_FILES = *.java Code\ Introductif/*.java Table\ Disque\ et\ exemples/*.java
+SRC_FILES = *.java Code\ Introductif/*.java Table\ Disque\ et\ exemples/*.java Index/*.java
 
 # Target par défaut
 all: compile
@@ -25,6 +25,7 @@ clean:
 	rm -f *.class
 	rm -f Code\ Introductif/*.class
 	rm -f Table\ Disque\ et\ exemples/*.class
+	rm -f Index/*.class
 
 # Nettoyage complet et recompilation
 rebuild: clean compile
