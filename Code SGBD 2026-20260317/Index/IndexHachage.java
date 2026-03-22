@@ -17,13 +17,12 @@ import java.util.*;
  * Construction : FullScan de la table → 1 écriture de l'index.
  * Recherche    : calcul du bucket + skip jusqu'à lui → 1 lecture disque.
  */
-public class IndexHachage {
+public class IndexHachage extends IndexHachageBase {
 
     public String filePath;
     public int nbBuckets;
-    public int attrIndex;      // colonne indexée
+    // attrIndex et reads sont hérités de IndexHachageBase
     public int bucketCapacity; // nb max d'entrées par bucket (taille fixe)
-    public int reads = 0;      // lectures de buckets dans l'index
 
     public IndexHachage(String filePath) {
         this.filePath = filePath;
@@ -45,25 +44,21 @@ public class IndexHachage {
      * @param attrIndex colonne à indexer
      * @param nbBuckets nombre de buckets (doit être > 0)
      */
+    @Override
+    public void construire(TableDisque table, int attrIndex) throws IOException {
+        construire(table, attrIndex, 10); // 10 buckets par défaut
+    }
+
     public void construire(TableDisque table, int attrIndex, int nbBuckets) throws IOException {
         this.nbBuckets = nbBuckets;
-        this.attrIndex = attrIndex;
 
         // Étape 1 : FullScan → répartition dans les buckets en mémoire
+        // Le scan est mutualisé dans IndexHachageBase.lireTable()
         List<List<EntreeIndex>> buckets = new ArrayList<>();
         for (int i = 0; i < nbBuckets; i++) buckets.add(new ArrayList<>());
 
-        FileReader reader = new FileReader(table.filePath);
-        int taille    = reader.read(); // header : nb tuples
-        int tupleSize = reader.read(); // header : nb attributs
-
-        for (int i = 0; i < taille; i++) {
-            int[] vals = new int[tupleSize];
-            for (int j = 0; j < tupleSize; j++) vals[j] = reader.read();
-            int cle = vals[attrIndex];
-            buckets.get(hash(cle)).add(new EntreeIndex(cle, i));
-        }
-        reader.close();
+        for (EntreeIndex e : lireTable(table, attrIndex))
+            buckets.get(hash(e.cle)).add(e);
 
         // Étape 2 : capacité fixe = taille du plus grand bucket (sans overflow)
         this.bucketCapacity = 1;
@@ -72,11 +67,15 @@ public class IndexHachage {
 
         // Étape 3 : écriture du fichier d'index
         FileWriter writer = new FileWriter(this.filePath);
+        //header: infos sur les dimension de la table
         writer.write(nbBuckets);
         writer.write(attrIndex);
         writer.write(bucketCapacity);
+
+        //parcours les buckets
         for (List<EntreeIndex> bucket : buckets) {
             writer.write(bucket.size());
+            //parcours les entréee du bucket
             for (EntreeIndex e : bucket) {
                 writer.write(e.cle);
                 writer.write(e.numTuple);
@@ -105,9 +104,11 @@ public class IndexHachage {
      *
      * Comptage : reads++ par appel (= 1 accès disque au bucket).
      */
+    @Override
     public List<Integer> chercher(int cle) throws IOException {
         int bucketId = hash(cle);
 
+        //lecture de l'entête
         FileReader reader = new FileReader(this.filePath);
         reader.read(); // nbBuckets  (header)
         reader.read(); // attrIndex  (header)
@@ -117,11 +118,14 @@ public class IndexHachage {
         //   chaque bucket = 1 octet (nbEntrees) + cap*2 octets (entrées)
         reader.skip((long) bucketId * (1 + cap * 2));
 
+        //lecture des entrées du bloc
         int nbEntrees = reader.read();
         List<Integer> result = new ArrayList<>();
+        //parcours du bloc
         for (int i = 0; i < cap; i++) {
             int k   = reader.read();
             int num = reader.read();
+            //on note que les valeurs correspondant aux clés
             if (i < nbEntrees && k == cle) result.add(num);
         }
         reader.close();

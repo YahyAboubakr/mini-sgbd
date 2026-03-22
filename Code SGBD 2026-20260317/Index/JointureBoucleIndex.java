@@ -3,13 +3,13 @@ public class JointureBoucleIndex extends Instrumentation implements Operateur {
 
     private Operateur op1;
     private TableDisque table2;
-    private IndexHachage index2;
+    private IndexHachageBase index2;
     private int col1; // colonne de jointure dans op1
 
     private Tuple t1;
     private IndexScanHachage currentScan2;
 
-    public JointureBoucleIndex(Operateur op1, TableDisque table2, IndexHachage index2, int col1) {
+    public JointureBoucleIndex(Operateur op1, TableDisque table2, IndexHachageBase index2, int col1) {
         super("JointureBoucleIndex" + Instrumentation.number++);
         this.op1 = op1;
         this.table2 = table2;

@@ -192,6 +192,24 @@ public class Main {
         System.out.println("Lectures disque  : " + scanH.reads
             + "  (1 bucket + " + resHash.size() + " accès directs)");
 
+        // IndexScan Hachage Dynamique
+        System.out.println("\n── IndexScan Hachage Dynamique (capacité=4) ──────────");
+        IndexHachageDynamique indexDyn = new IndexHachageDynamique(4);
+        indexDyn.construire(tableIdx, 0);
+
+        IndexScanHachage scanD = new IndexScanHachage(indexDyn, tableIdx, cleRecherche);
+        scanD.open();
+        List<Tuple> resDyn = new ArrayList<>();
+        while ((t = scanD.next()) != null) resDyn.add(t);
+        scanD.close();
+        System.out.println("Tuples trouvés : " + resDyn.size());
+        for (Tuple r : resDyn) System.out.println("   " + r);
+        System.out.println("Lectures disque  : " + scanD.reads
+            + "  (1 bucket + " + resDyn.size() + " accès directs)");
+        System.out.println("Structure finale (profondeur globale=" + indexDyn.getGlobalDepth()
+            + ", " + (1 << indexDyn.getGlobalDepth()) + " entrées répertoire"
+            + ", " + indexDyn.getNbBucketsDistincts() + " buckets distincts)");
+
         // IndexScan Arbre B+
         System.out.println("\n── IndexScan Arbre B+ (ordre 4) – égalité ────────────");
         ArbreB arbre = new ArbreB(4);
@@ -229,10 +247,13 @@ public class Main {
         System.out.println("Lectures disque  : " + scanI.reads);
 
         System.out.println("\nBILAN :");
-        System.out.printf("FullScan          : %2d lectures%n", scanFS.reads);
-        System.out.printf("IndexScan Hachage : %2d lectures%n", scanH.reads);
-        System.out.printf("IndexScan B+      : %2d lectures%n", scanA.reads);
-        boolean coherence = resFull.size() == resHash.size() && resFull.size() == resArbre.size();
+        System.out.printf("FullScan               : %2d lectures%n", scanFS.reads);
+        System.out.printf("IndexScan Hachage stat : %2d lectures%n", scanH.reads);
+        System.out.printf("IndexScan Hachage dyn  : %2d lectures%n", scanD.reads);
+        System.out.printf("IndexScan B+           : %2d lectures%n", scanA.reads);
+        boolean coherence = resFull.size() == resHash.size()
+                         && resFull.size() == resDyn.size()
+                         && resFull.size() == resArbre.size();
         System.out.println("Cohérence des résultats : " + (coherence ? "OK ✓" : "ERREUR ✗"));
 
         // ══════════════════════════════════════════════════════════════
@@ -287,6 +308,7 @@ public class Main {
         tdJBI2.tupleSize = metaJBI2.read();
         metaJBI2.close();
 
+        // — avec index statique
         IndexHachage indexJBI = new IndexHachage(PATH + "index_table2_col0");
         indexJBI.construire(tdJBI2, 0, 7);
 
@@ -296,12 +318,101 @@ public class Main {
         int countJBI = 0;
         while ((t = joinBI.next()) != null) { System.out.println(t); countJBI++; }
         joinBI.close();
-        System.out.println("Nombre de résultats : " + countJBI);
+        System.out.println("Résultats (index statique)  : " + countJBI);
+
+        // — avec index dynamique
+        IndexHachageDynamique indexJBIDyn = new IndexHachageDynamique();
+        indexJBIDyn.construire(tdJBI2, 0);
+
+        JointureBoucleIndex joinBIDyn = new JointureBoucleIndex(
+                new FullScanTableDisque(tdJBI1), tdJBI2, indexJBIDyn, 0);
+        joinBIDyn.open();
+        int countJBIDyn = 0;
+        while ((t = joinBIDyn.next()) != null) countJBIDyn++;
+        joinBIDyn.close();
+        System.out.println("Résultats (index dynamique) : " + countJBIDyn);
+        System.out.println("Cohérence statique/dynamique : "
+            + (countJBI == countJBIDyn ? "OK ✓" : "ERREUR ✗"));
 
         // ══════════════════════════════════════════════════════════════
-        // 10. SÉLECTEUR DE JOINTURE (grandes tables — tri-fusion forcé)
+        // 10. HACHAGE DYNAMIQUE — PREUVE DE L'ASPECT DYNAMIQUE
         // ══════════════════════════════════════════════════════════════
-        System.out.println("\n═══════════ 10. SÉLECTEUR DE JOINTURE (grandes tables) ═══════════\n");
+        System.out.println("\n═══════════ 10. PREUVE DU HACHAGE DYNAMIQUE ═══════════\n");
+
+        // ── Scénario 1 : croissance progressive du répertoire ─────────
+        // 8 clés distinctes (0..7), capacité=2 → force 4 splits et plusieurs doublements
+        System.out.println("── Scénario 1 : croissance progressive (capacité=2) ────");
+        System.out.println("Données : clés 0,1,2,3,4,5,6,7  (8 tuples, toutes distinctes)");
+        System.out.println("Hachage STATIQUE : il faut déclarer le nombre de buckets à l'avance.");
+        System.out.println("Hachage DYNAMIQUE : on part de 2 buckets, le répertoire double si besoin.\n");
+
+        TableDisque tableDemo = new TableDisque(PATH + "table_demo_dyn");
+        tableDemo.ecrire(new int[][]{{0,0},{1,0},{2,0},{3,0},{4,0},{5,0},{6,0},{7,0}});
+
+        IndexHachageDynamique idxDemo = new IndexHachageDynamique(2);
+        System.out.println("Avant construction : profondeur=" + idxDemo.getGlobalDepth()
+            + ", répertoire=" + (1 << idxDemo.getGlobalDepth()) + " entrées, buckets=" + idxDemo.getNbBucketsDistincts());
+        idxDemo.construire(tableDemo, 0);
+
+        System.out.println("\nÉvénements survenus pendant la construction :");
+        for (String evt : idxDemo.getHistoriqueSplits()) System.out.println(evt);
+
+        System.out.println("\nAprès construction :");
+        idxDemo.afficher();
+
+        System.out.println("\nConclusion : le répertoire a grandi automatiquement de 2 à "
+            + (1 << idxDemo.getGlobalDepth()) + " entrées sans avoir été préconfiguré.");
+
+        // ── Scénario 2 : données déséquilibrées ───────────────────────
+        // Certains buckets splittent plus que d'autres → profondeur locale variable
+        System.out.println("\n── Scénario 2 : données déséquilibrées (0 et 4 surchargés) ──");
+        System.out.println("Données : clé 0 × 1, clé 1 × 1, clé 4 × 1, clé 5 × 1, clé 0 × 2 supplémentaires");
+        System.out.println("→ le bucket de 0 va être surchargé et splitter, pas les autres\n");
+
+        // 0,4 ont le même hash(depth=1)=0, donc même bucket initial ; 1,5 aussi
+        // Avec capacité=2, le bucket 0 (clés 0 et 4) va splitter en premier
+        TableDisque tableDeseq = new TableDisque(PATH + "table_demo_deseq");
+        tableDeseq.ecrire(new int[][]{{0,0},{4,0},{1,0},{5,0},{0,0},{4,0}});
+
+        IndexHachageDynamique idxDeseq = new IndexHachageDynamique(2);
+        idxDeseq.construire(tableDeseq, 0);
+
+        System.out.println("Événements :");
+        for (String evt : idxDeseq.getHistoriqueSplits()) System.out.println(evt);
+        System.out.println();
+        idxDeseq.afficher();
+        System.out.println("\nNotez : certains buckets ont une profondeur locale < profondeur globale");
+        System.out.println("→ plusieurs entrées du répertoire pointent vers le même bucket (partage).");
+        System.out.println("→ Impossible avec le hachage statique (1 entrée = 1 bucket fixe).");
+
+        // ── Scénario 3 : statique contraint vs dynamique ─────────────
+        System.out.println("\n── Scénario 3 : statique avec trop peu de buckets ──────");
+        System.out.println("On indexe table_demo_dyn (8 clés) avec seulement 2 buckets statiques.");
+        System.out.println("→ Le statique entasse tout dans 2 buckets (collisions inévitables).");
+        System.out.println("→ Le dynamique s'adapte jusqu'à avoir autant de buckets que nécessaire.\n");
+
+        IndexHachage idxStat2 = new IndexHachage(PATH + "index_demo_stat2");
+        idxStat2.construire(tableDemo, 0, 2);
+
+        IndexHachageDynamique idxDyn2 = new IndexHachageDynamique(2);
+        idxDyn2.construire(tableDemo, 0);
+
+        System.out.println("Statique (2 buckets) — capacité par bucket : " + idxStat2.bucketCapacity
+            + " (= taille du plus grand bucket, déterminée après coup)");
+        System.out.println("Dynamique           — buckets distincts    : " + idxDyn2.getNbBucketsDistincts()
+            + " (créés progressivement, aucune surcharge)");
+
+        System.out.println("\nRecherche clé=4 :");
+        System.out.println("  Statique  : lit 1 bucket contenant " + idxStat2.chercher(4).size()
+            + " résultat(s) MAIS partage ce bucket avec d'autres clés (bucket chargé)");
+        idxDyn2.reads = 0;
+        System.out.println("  Dynamique : lit 1 bucket ciblé, " + idxDyn2.chercher(4).size()
+            + " résultat(s), bucket dédié aux clés hachant vers ce préfixe uniquement");
+
+        // ══════════════════════════════════════════════════════════════
+        // 11. SÉLECTEUR DE JOINTURE (grandes tables — tri-fusion forcé)
+        // ══════════════════════════════════════════════════════════════
+        System.out.println("\n═══════════ 11. SÉLECTEUR DE JOINTURE (grandes tables) ═══════════\n");
         TableDisque tdBig3 = new TableDisque(PATH + "table_big3");
         tdBig3.randomize(2, 1200);
         TableDisque tdBig4 = new TableDisque(PATH + "table_big4");
@@ -311,7 +422,7 @@ public class Main {
         // ══════════════════════════════════════════════════════════════
         // 11. JOINTURE DOUBLE BOUCLE IMBRIQUÉE (DBI) — petites tables
         // ══════════════════════════════════════════════════════════════
-        System.out.println("\n═══════════ 11. JOINTURE DOUBLE BOUCLE IMBRIQUÉE (DBI) ═══════════\n");
+        System.out.println("\n═══════════ 12. JOINTURE DOUBLE BOUCLE IMBRIQUÉE (DBI) ═══════════\n");
         TableDisque td5 = new TableDisque(PATH + "table5");
         td5.randomize(2, 5);
         TableDisque td6 = new TableDisque(PATH + "table6");
