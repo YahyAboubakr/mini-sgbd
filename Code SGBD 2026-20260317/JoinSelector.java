@@ -30,26 +30,60 @@ public class JoinSelector {
 
         // Logique de décision
         long nlrCount = leftSize * rightSize;
+
+        // Si les données sont déjà triées, TriFusion est optimal
+        if (isSorted) {
+            System.out.println("JoinSelector: Choix -> JointureTriFusion (Données déjà triées). Gain estimé : O(N+M) sans coût additionnel en mémoire/CPU.");
+            return new JointureTriFusion(left, right, colLeft, colRight);
+        }
+
+        // 1. Si une table tient en mémoire : jointure par boucle imbriquées, ou hachage.
         if (nlrCount < 100) {
             // Les tables sont minuscules : la Double Boucle Imbriquée (Nested Loop Join) est super rapide
             // Gain : Pas d'allocation mémoire complexe (HashMap) ni de tri coûteux au lancement.
             System.out.println("JoinSelector: Choix -> DBI (Double Boucle Imbriquée). Gain estimé : Tables très petites, évite l'overhead d'initialisation.");
             return new DBI(left, right, colLeft, colRight);
-        } else if (isSorted) {
-            // Les données sont déjà triées : JointureTriFusion est optimale (coût O(N+M))
-            // Gain : Évite le tri coûteux en mémoire et CPU, l'algorithme lit linéairement les deux sources et réalise la jointure de la manière la plus performante.
-            System.out.println("JoinSelector: Choix -> JointureTriFusion (Données déjà triées). Gain estimé : O(N+M) sans coût additionnel en mémoire/CPU.");
-            return new JointureTriFusion(left, right, colLeft, colRight);
         } else if (estimatedMemoryForHash < availableMemory) {
-            // Une table tient en mémoire : Hash Join est efficace pour les équi-jointures
-            // Gain : La table la plus petite est stockée en mémoire (HashMap). Le coût de sondage est O(1) en moyenne, très performant pour les jointures sans index trié.
-            System.out.println("JoinSelector: Choix -> JointureHachage (La plus petite table tient en RAM). Gain estimé : Lookup O(1) très rapide au lieu d'un tri O(N log N).");
+            System.out.println("JoinSelector: Choix -> JointureHachage (La plus petite table tient en RAM). Gain estimé : Lookup O(1) très rapide.");
             return new JointureHachage(left, right, colLeft, colRight);
-        } else {
-            // Mémoire insuffisante : utiliser Sort-Merge Join pour éviter les débordements de mémoire avec le Hash Join classique.
-            // Gain : Prévention du crash pour cause de "Out of Memory". Bien que le tri en externe puisse être limitant I/O, le Sort-Merge Join ne requiert pas la conservation de la table en mémoire vive, gérant avec efficacité les immenses volumes de données.
-            System.out.println("JoinSelector: Choix -> JointureTriFusion (Mémoire insuffisante pour Hachage). Gain estimé : Évite le débordement mémoire (OutOfMemoryError).");
-            return new JointureTriFusion(left, right, colLeft, colRight);
         }
+
+        // 2. Si au moins un index est utilisable : jointure par boucle imbriquées indexée.
+        IndexHachage indexRight = getIndexIfExists(right, colRight);
+        if (indexRight != null && right instanceof FullScanTableDisque) {
+            System.out.println("JoinSelector: Choix -> JointureBoucleIndex (Index utilisable sur la table). Gain estimé : Accès direct évitant un Full Scan ou Tri.");
+            return new JointureBoucleIndex(left, ((FullScanTableDisque)right).getTable(), indexRight, colLeft);
+        }
+
+        // 3. Si une des deux tables beaucoup plus petite que l'autre : jointure par hachage.
+        if (leftSize < rightSize / 10 || rightSize < leftSize / 10) {
+            System.out.println("JoinSelector: Choix -> JointureHachage (Une table est beaucoup plus petite que l'autre). Gain estimé : Construction de la table de hachage rapide.");
+            return new JointureHachage(left, right, colLeft, colRight);
+        }
+
+        // 4. Sinon : jointure par tri-fusion
+        System.out.println("JoinSelector: Choix -> JointureTriFusion (Par défaut ou mémoire insuffisante). Gain estimé : Évite le débordement mémoire (OutOfMemoryError).");
+        return new JointureTriFusion(left, right, colLeft, colRight);
+    }
+
+    private static IndexHachage getIndexIfExists(Operateur op, int col) {
+        if (op instanceof FullScanTableDisque) {
+            TableDisque td = ((FullScanTableDisque) op).getTable();
+            if (td != null && td.filePath != null) {
+                java.io.File file = new java.io.File(td.filePath);
+                String indexName = "index_" + file.getName() + "_col" + col;
+                java.io.File indexFile = new java.io.File(file.getParent(), indexName);
+                if (indexFile.exists()) {
+                    try {
+                        IndexHachage index = new IndexHachage(indexFile.getAbsolutePath());
+                        index.charger();
+                        return index;
+                    } catch (Exception e) {
+                        return null;
+                    }
+                }
+            }
+        }
+        return null;
     }
 }

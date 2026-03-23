@@ -25,12 +25,16 @@ public class FullScanTableDisque extends Instrumentation implements Operateur {
         this.table = table;
         this.total = 0;
         try {
-            FileReader reader = new FileReader(table.filePath);
+            java.io.FileReader reader = new java.io.FileReader(table.filePath);
             this.taille = reader.read();
             reader.close();
         } catch (IOException e) {
             this.taille = 0;
         }
+    }
+
+    public TableDisque getTable() {
+        return this.table;
     }
 
     @Override

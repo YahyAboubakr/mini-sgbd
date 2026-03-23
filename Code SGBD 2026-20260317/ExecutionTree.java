@@ -55,19 +55,43 @@ public class ExecutionTree implements Operateur {
         // Commencer avec la première table
         Operateur currentOperator = createTableScan(basePath, tables[0]);
 
-        // Appliquer les jointures si plusieurs tables
-        if (tables.length > 1) {
-            currentOperator = applyJoins(currentOperator, basePath, tables, joinConditions);
+        // Pushdown : Appliquer les conditions de filtrage de la première table avant la jointure
+        List<Condition> table0Filters = extractFiltersForTable(filterConditions, tables[0]);
+        if (!table0Filters.isEmpty()) {
+            int tupleSize = determineTupleSize(currentOperator);
+            currentOperator = applyConditions(currentOperator, table0Filters, tupleSize);
         }
 
-        // Appliquer les conditions de filtrage
+        // Appliquer les jointures si plusieurs tables
+        if (tables.length > 1) {
+            currentOperator = applyJoins(currentOperator, basePath, tables, joinConditions, filterConditions);
+        }
+
+        // Appliquer les conditions de filtrage restantes (sur le résultat de la jointure ou conditions sans nom de table)
         if (!filterConditions.isEmpty()) {
-            // Déterminer la taille du tuple après jointure
             int tupleSize = determineTupleSize(currentOperator);
             currentOperator = applyConditions(currentOperator, filterConditions, tupleSize);
         }
 
         this.rootOperator = currentOperator;
+    }
+
+    /**
+     * Extrait les filtres qui s'appliquent spécifiquement à une table donnée.
+     * Ces filtres sont retirés de la liste originale.
+     */
+    private List<Condition> extractFiltersForTable(List<Condition> allFilters, String tableName) {
+        List<Condition> tableFilters = new ArrayList<>();
+        java.util.Iterator<Condition> iterator = allFilters.iterator();
+        while (iterator.hasNext()) {
+            Condition cond = iterator.next();
+            String leftTable = Condition.extractTableName(cond.operandeGauche());
+            if (tableName.equals(leftTable)) {
+                tableFilters.add(cond);
+                iterator.remove();
+            }
+        }
+        return tableFilters;
     }
 
     /**
@@ -81,12 +105,19 @@ public class ExecutionTree implements Operateur {
     /**
      * Applique les jointures entre les tables
      */
-    private Operateur applyJoins(Operateur currentOperator, String basePath, String[] tables, List<Condition> joinConditions) {
+    private Operateur applyJoins(Operateur currentOperator, String basePath, String[] tables, List<Condition> joinConditions, List<Condition> filterConditions) {
         Operateur result = currentOperator;
 
         // Pour chaque table supplémentaire, appliquer les jointures
         for (int i = 1; i < tables.length; i++) {
             Operateur rightOperator = createTableScan(basePath, tables[i]);
+
+            // Pushdown : Appliquer les filtres spécifiques à cette table de droite avant la jointure
+            List<Condition> rightFilters = extractFiltersForTable(filterConditions, tables[i]);
+            if (!rightFilters.isEmpty()) {
+                int rightTupleSize = determineTupleSize(rightOperator);
+                rightOperator = applyConditions(rightOperator, rightFilters, rightTupleSize);
+            }
 
             // Trouver la condition de jointure pour cette table
             Condition joinCondition = findJoinCondition(joinConditions, tables[i-1], tables[i]);

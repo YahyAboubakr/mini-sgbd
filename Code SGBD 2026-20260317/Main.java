@@ -1,9 +1,11 @@
-import java.io.*;
-import java.util.*;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Main {
 
-    static final String PATH = "/home/jules/Documents/4A-Apprentis/SGBD/mini-sgbd/Code SGBD 2026-20260317/Table Disque et exemples/";
+    static final String PATH = "/home/amadou/insa/sgbd/src/mini/Code SGBD 2026-20260317/Table Disque et exemples/";
 
     public static void main(String[] args) throws IOException {
 
@@ -434,20 +436,42 @@ public class Main {
         ExecutionTree.executeQuery("SELECT * FROM table6", PATH);
         System.out.println("\n--- SELECT * FROM table5, table6 WHERE table5.0 = table6.1 ---");
         ExecutionTree.executeQuery("SELECT * FROM table5, table6 WHERE table5.0 = table6.1", PATH);
+
+        // ══════════════════════════════════════════════════════════════
+        // 13. TEST JOINTURE PAR INDEX VIA SÉLECTEUR
+        // ══════════════════════════════════════════════════════════════
+        System.out.println("\n═══════════ 13. TEST JOINTURE PAR INDEX VIA SÉLECTEUR ═══════════\n");
+        // Création de deux grandes tables pour forcer le contournement de la règle 1 (qui utilise la mémoire vive)
+        TableDisque td7 = new TableDisque(PATH + "table7");
+        td7.randomize(2, 1500); // Exige environ 150,000 octets > 102,400
+        TableDisque td8 = new TableDisque(PATH + "table8");
+        td8.randomize(2, 1500);
+        
+        // Création d'un index pour td8 sur sa colonne 1
+        IndexHachage tempIndex = new IndexHachage(PATH + "index_table8_col1");
+        try {
+            tempIndex.construire(td8, 1, 20); // 20 buckets pour l'exemple
+        } catch (Exception e) {
+            System.err.println("Erreur de création d'index : " + e.getMessage());
+        }
+
+        System.out.println("--- SELECT * FROM table7, table8 WHERE table7.0 = table8.1 ---");
+        // Ici le sélecteur devrait analyser les tailles, contourner la règle Memory-Fit, et trouver l'index_table8_col1.
+        ExecutionTree.executeQuery("SELECT * FROM table7, table8 WHERE table7.0 = table8.1", PATH);
     }
 
     // ──────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────
 
-    /** Affiche tous les tuples d'une table disque. */
-    private static void afficherTable(String chemin) {
-        FullScanTableDisque scan = new FullScanTableDisque(new TableDisque(chemin));
-        scan.open();
-        Tuple t;
-        while ((t = scan.next()) != null) System.out.println(t);
-        scan.close();
-    }
+    // /** Affiche tous les tuples d'une table disque. */
+    // private static void afficherTable(String chemin) {
+    //     FullScanTableDisque scan = new FullScanTableDisque(new TableDisque(chemin));
+    //     scan.open();
+    //     Tuple t;
+    //     while ((t = scan.next()) != null) System.out.println(t);
+    //     scan.close();
+    // }
 
     /** Vérifie qu'une liste de tuples est triée sur la colonne donnée. */
     static boolean verifTri(List<Tuple> tuples, int col) {
